@@ -1,0 +1,77 @@
+DATA:
+  train_name: pascal
+  test_name: default
+  train_split: 0
+  test_split: default
+  train_list: lists/pascal/train.txt
+  data_root: data/pascal/
+  val_list: lists/pascal/val.txt
+  num_classes_tr: 16  # Counting background for training
+  num_classes_val: 5
+  use_split_coco: False
+  workers: 2
+  image_size: 417
+  padding_label: 255
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+  scale_min: 0.5
+  scale_max: 2.0
+  rot_min: -10
+  rot_max: 10
+  augmentations: ['hor_flip', 'vert_flip', 'resize']
+
+TRAIN:
+  ckpt_path: checkpoints/
+  batch_size: 12
+  epochs: 50
+  log_freq : 50
+  visdom_port: -1
+  debug: False
+  save_models: True
+  lr: 0.0025
+  scale_lr: 1.0
+  mixup: False
+  lr_stepsize: 30
+  momentum: 0.9
+  gamma: 0.1
+  nesterov: True
+  weight_decay: 0.0001
+  main_optim: SGD
+  scheduler: cosine
+  milestones: [40, 70]
+
+MODEL:
+  arch: resnet
+  pretrained: True  # Means the backbone has been pre-trained
+  bins: [1, 2, 3, 6]
+  dropout: 0.1
+  m_scale: False
+  layers: 50
+  bottleneck_dim: 512
+
+EVALUATION:
+  shot: 1
+  random_shot: False
+  episodic: True
+  norm_feat: True
+  batch_size_val: 100
+  manual_seed: 2020
+  ckpt_used: best
+  test_num: 1000
+  FB_param_noise: 0
+  smoothing: True
+  n_runs: 1
+  save_oracle: False
+
+CLASSIFIER:
+  distance: cos
+  temperature: 20.
+  adapt_iter: 10
+  FB_param_type: soft
+  weights: [1.0, 'auto', 'auto']  #  [0.5, 1.0, 0.1]
+  cls_lr: 0.025
+  FB_param_update: [15]
+  cls_visdom_freq: 5
+
+DISTRIBUTED:
+  gpus: [0]
