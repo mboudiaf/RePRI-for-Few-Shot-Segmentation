@@ -6,7 +6,7 @@ import torch.nn as nn
 
 
 def get_optimizer(args: argparse.Namespace,
-                  parameters: List[nn.module]) -> torch.optim.Optimizer:
+                  parameters: List[nn.Module]) -> torch.optim.Optimizer:
     if args.main_optim == 'SGD':
         return torch.optim.SGD(parameters,
                                momentum=args.momentum,

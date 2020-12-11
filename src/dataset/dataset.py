@@ -8,7 +8,7 @@ import torch
 import random
 import argparse
 from typing import List
-
+from torch.utils.data.distributed import DistributedSampler
 
 def get_train_loader(args: argparse.Namespace,
                      return_paths: bool = False) -> torch.utils.data.DataLoader:
@@ -37,18 +37,19 @@ def get_train_loader(args: argparse.Namespace,
     # ===================== Build loader =====================
     train_data = StandardData(transform=train_transform, class_list=class_list,
                               return_paths=return_paths, args=args)
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_data)
-        batch_size = int(args.batch_size / torch.distributed.get_world_size())
-    else:
-        batch_size = args.batch_size
-        train_sampler = None
 
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size,
+    world_size = torch.distributed.get_world_size()
+    train_sampler = DistributedSampler(train_data) if args.distributed else None
+    batch_size = int(args.batch_size / world_size) if args.distributed else args.batch_size
+
+    train_loader = torch.utils.data.DataLoader(train_data,
+                                               batch_size=batch_size,
                                                shuffle=(train_sampler is None),
-                                               num_workers=args.workers, pin_memory=True,
-                                               sampler=train_sampler, drop_last=True)
-    return train_loader
+                                               num_workers=args.workers,
+                                               pin_memory=True,
+                                               sampler=train_sampler,
+                                               drop_last=True)
+    return train_loader, train_sampler
 
 
 def get_val_loader(args: argparse.Namespace) -> torch.utils.data.DataLoader:
@@ -74,9 +75,12 @@ def get_val_loader(args: argparse.Namespace) -> torch.utils.data.DataLoader:
 
     # ===================== Build loader =====================
     val_data = EpisodicData(transform=val_transform, class_list=class_list, args=args)
-    val_loader = torch.utils.data.DataLoader(val_data, batch_size=1,
-                                             shuffle=True, num_workers=args.workers,
-                                             pin_memory=True, sampler=val_sampler)
+    val_loader = torch.utils.data.DataLoader(val_data,
+                                             batch_size=1,
+                                             shuffle=False,
+                                             num_workers=args.workers,
+                                             pin_memory=True,
+                                             sampler=val_sampler)
 
     return val_loader, val_transform
 

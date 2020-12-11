@@ -3,13 +3,11 @@ SPLIT=$2
 GPU=$3
 LAYERS=$4
 
-for SPLIT in $SPLITS
-do
-	dirname="results/train/resnet-${LAYERS}/${DATA}/split_${SPLIT}"
-	mkdir -p -- "$dirname"
-	python3 -m src.train --config config_files/${DATA}.yaml \
-						 --opts train_split ${SPLIT} \
-							    layers ${LAYERS} \
-							    gpus ${GPU} \
+
+dirname="results/train/resnet-${LAYERS}/${DATA}/split_${SPLIT}"
+mkdir -p -- "$dirname"
+python3 -m src.train --config config_files/${DATA}.yaml \
+					 --opts train_split ${SPLIT} \
+						    layers ${LAYERS} \
+						    gpus ${GPU} \
 							    | tee ${dirname}/log_${SHOT}.txt
-done

@@ -41,7 +41,7 @@ def main_worker(rank: int,
                 world_size: int,
                 args: argparse.Namespace) -> None:
 
-    print(f"==> Running DDP checkpoint example on rank {rank}.")
+    print(f"==> Running process rank {rank}.")
     setup(args, rank, world_size)
 
     if args.manual_seed is not None:
@@ -73,7 +73,7 @@ def main_worker(rank: int,
     savedir = get_model_dir(args)
 
     # ========== Data  =====================
-    train_loader = get_train_loader(args)
+    train_loader, train_sampler = get_train_loader(args)
     episodic_val_loader, _ = get_val_loader(args)  # mode='train' means that we will validate on images from validation set, but with the bases classes
 
     # ========== Scheduler  ================
@@ -95,6 +95,8 @@ def main_worker(rank: int,
 
     # ========== Training  =================
     for epoch in tqdm(range(args.epochs)):
+        if args.distributed:
+            train_sampler.set_epoch(epoch)
 
         train_Iou, train_loss = do_epoch(args=args,
                                          train_loader=train_loader,
