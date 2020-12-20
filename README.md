@@ -1,6 +1,6 @@
 # Region Proportion Regularized Inference (RePRI) for Few-Shot Segmentation
 
-In this repo, we provide the code for our paper : "Few-Shot Segmentation Without Meta-Learning: A Good Transductive Inference Is All You Need?", available at :
+In this repo, we provide the code for our paper : "Few-Shot Segmentation Without Meta-Learning: A Good Transductive Inference Is All You Need?", available at https://arxiv.org/abs/2012.06166:
 
 <img src="figures/intro_image.png" width="800" height="400"/>
 
