@@ -12,11 +12,12 @@ from .model.pspnet import get_model
 from .optimizer import get_optimizer, get_scheduler
 from .dataset.dataset import get_train_loader, get_val_loader
 from .util import intersectionAndUnionGPU, get_model_dir, AverageMeter, find_free_port
-from .util import setup, cleanup
+from .util import setup, cleanup, main_process
 from tqdm import tqdm
-from .test import validate
+from .test import standard_validate, episodic_validate
 from typing import Dict
 from torch import Tensor
+
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -72,9 +73,12 @@ def main_worker(rank: int,
 
     savedir = get_model_dir(args)
 
+    # ========== Validation ==================
+    validate_fn = episodic_validate if args.episodic_val else standard_validate
+
     # ========== Data  =====================
     train_loader, train_sampler = get_train_loader(args)
-    episodic_val_loader, _ = get_val_loader(args)  # mode='train' means that we will validate on images from validation set, but with the bases classes
+    val_loader, _ = get_val_loader(args)  # mode='train' means that we will validate on images from validation set, but with the bases classes
 
     # ========== Scheduler  ================
     scheduler = get_scheduler(args, optimizer, len(train_loader))
@@ -87,9 +91,9 @@ def main_worker(rank: int,
         iter_per_epoch = len(train_loader)
     log_iter = int(iter_per_epoch / args.log_freq) + 1
 
-    metrics: Dict[str, Tensor] = {"val_Iou": torch.zeros((args.epochs, 1)).type(torch.float32),
+    metrics: Dict[str, Tensor] = {"val_mIou": torch.zeros((args.epochs, 1)).type(torch.float32),
                                   "val_loss": torch.zeros((args.epochs, 1)).type(torch.float32),
-                                  "train_Iou": torch.zeros((args.epochs, log_iter)).type(torch.float32),
+                                  "train_mIou": torch.zeros((args.epochs, log_iter)).type(torch.float32),
                                   "train_loss": torch.zeros((args.epochs, log_iter)).type(torch.float32),
                                   }
 
@@ -98,35 +102,35 @@ def main_worker(rank: int,
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
-        train_Iou, train_loss = do_epoch(args=args,
-                                         train_loader=train_loader,
-                                         iter_per_epoch=iter_per_epoch,
+        train_mIou, train_loss = do_epoch(args=args,
+                                          train_loader=train_loader,
+                                          iter_per_epoch=iter_per_epoch,
+                                          model=model,
+                                          optimizer=optimizer,
+                                          scheduler=scheduler,
+                                          epoch=epoch,
+                                          callback=callback,
+                                          log_iter=log_iter)
+
+        val_mIou, val_loss = validate_fn(args=args,
+                                         val_loader=val_loader,
                                          model=model,
-                                         optimizer=optimizer,
-                                         scheduler=scheduler,
-                                         epoch=epoch,
-                                         callback=callback,
-                                         log_iter=log_iter,
-                                         )
-        val_Iou, val_loss = validate(args=args,
-                                     val_loader=episodic_val_loader,
-                                     model=model,
-                                     use_callback=False,
-                                     suffix=f'train_{epoch}')
+                                         use_callback=False,
+                                         suffix=f'train_{epoch}')
         if args.distributed:
-            dist.all_reduce(val_Iou), dist.all_reduce(val_loss)
-            val_Iou /= world_size
+            dist.all_reduce(val_mIou), dist.all_reduce(val_loss)
+            val_mIou /= world_size
             val_loss /= world_size
 
         if main_process(args):
             # Live plot if desired with visdom
             if callback is not None:
                 callback.scalar('val_loss', epoch, val_loss, title='Validiation Loss')
-                callback.scalar('mIoU_val', epoch, val_Iou, title='Val metrics')
+                callback.scalar('mIoU_val', epoch, val_mIou, title='Val metrics')
 
             # Model selection
-            if val_Iou.item() > max_val_mIoU:
-                max_val_mIoU = val_Iou.item()
+            if val_mIou.item() > max_val_mIoU:
+                max_val_mIoU = val_mIou.item()
                 os.makedirs(savedir, exist_ok=True)
                 filename = os.path.join(savedir, f'best.pth')
                 if args.save_models:
@@ -226,17 +230,6 @@ def compute_loss(args: argparse.Namespace,
     return loss
 
 
-def main_process(args: argparse.Namespace) -> bool:
-    if args.distributed:
-        rank = dist.get_rank()
-        if rank == 0:
-            return True
-        else:
-            return False
-    else:
-        return True
-
-
 def do_epoch(args: argparse.Namespace,
              train_loader: torch.utils.data.DataLoader,
              model: DDP,
@@ -248,7 +241,7 @@ def do_epoch(args: argparse.Namespace,
              log_iter: int) -> Tuple[torch.tensor, torch.tensor]:
     loss_meter = AverageMeter()
     train_losses = torch.zeros(log_iter).to(dist.get_rank())
-    train_Ious = torch.zeros(log_iter).to(dist.get_rank())
+    train_mIous = torch.zeros(log_iter).to(dist.get_rank())
 
     iterable_train_loader = iter(train_loader)
 
@@ -310,12 +303,12 @@ def do_epoch(args: argparse.Namespace,
                         break
 
                 train_losses[int(i / args.log_freq)] = loss_meter.avg
-                train_Ious[int(i / args.log_freq)] = mIoU
+                train_mIous[int(i / args.log_freq)] = mIoU
 
     if args.scheduler != 'cosine':
         scheduler.step()
 
-    return train_Ious, train_losses
+    return train_mIous, train_losses
 
 
 if __name__ == "__main__":
@@ -324,7 +317,7 @@ if __name__ == "__main__":
 
     if args.debug:
         args.test_num = 500
-        args.epochs = 2
+        # args.epochs = 2
         args.n_runs = 2
         args.save_models = False
 

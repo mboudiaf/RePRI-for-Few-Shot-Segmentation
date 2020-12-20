@@ -23,14 +23,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def make_plot(args: argparse.Namespace,
-              filename: str,
-              folder: str) -> None:
+              filename: str) -> None:
     plt.rc('font', size=args.fontsize)
 
     fig = plt.Figure(args.figsize)
     ax = fig.gca()
 
-    p = Path(folder)
+    p = Path(args.folder)
     all_files = p.glob(f'**/{filename}')
     for style, color, filepath in zip(cycle(styles), cycle(colors), all_files):
         array = np.load(filepath)
@@ -53,5 +52,5 @@ def make_plot(args: argparse.Namespace,
 
 if __name__ == "__main__":
     args = parse_args()
-    for filename in ['val_Iou.npy', 'val_loss.npy', 'train_Iou.npy', 'train_loss.npy']:
+    for filename in ['val_mIou.npy', 'val_loss.npy', 'train_mIou.npy', 'train_loss.npy']:
         make_plot(args=args, filename=filename)

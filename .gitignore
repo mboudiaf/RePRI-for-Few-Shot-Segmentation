@@ -14,7 +14,7 @@ results/
 initmodel/
 deploy/
 pickle_files/
-
+beluga/
 data/*
 !data/*.lineage
 

@@ -13,6 +13,17 @@ A = TypeVar("A")
 B = TypeVar("B")
 
 
+def main_process(args: argparse.Namespace) -> bool:
+    if args.distributed:
+        rank = dist.get_rank()
+        if rank == 0:
+            return True
+        else:
+            return False
+    else:
+        return True
+
+
 def setup(args: argparse.Namespace,
           rank: int,
           world_size: int) -> None:
@@ -159,9 +170,11 @@ def intersectionAndUnionGPU(preds: torch.tensor,
     target = target.view(-1)
     preds[target == ignore_index] = ignore_index
     intersection = preds[preds == target]
-    area_intersection = torch.histc(intersection, bins=num_classes, min=0, max=num_classes-1)
-    area_output = torch.histc(preds, bins=num_classes, min=0, max=num_classes-1)
-    area_target = torch.histc(target, bins=num_classes, min=0, max=num_classes-1)
+
+    # Addind .float() becausue histc not working with long() on CPU
+    area_intersection = torch.histc(intersection.float(), bins=num_classes, min=0, max=num_classes-1)
+    area_output = torch.histc(preds.float(), bins=num_classes, min=0, max=num_classes-1)
+    area_target = torch.histc(target.float(), bins=num_classes, min=0, max=num_classes-1)
     area_union = area_output + area_target - area_intersection
     # print(torch.unique(intersection))
     return area_intersection, area_union, area_target

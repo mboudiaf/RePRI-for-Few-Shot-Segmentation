@@ -10,6 +10,7 @@ import argparse
 from typing import List
 from torch.utils.data.distributed import DistributedSampler
 
+
 def get_train_loader(args: argparse.Namespace,
                      return_paths: bool = False) -> torch.utils.data.DataLoader:
     """
@@ -35,8 +36,11 @@ def get_train_loader(args: argparse.Namespace,
     class_list = split_classes[args.train_name][args.train_split]['train']
 
     # ===================== Build loader =====================
-    train_data = StandardData(transform=train_transform, class_list=class_list,
-                              return_paths=return_paths, args=args)
+    train_data = StandardData(transform=train_transform,
+                              class_list=class_list,
+                              return_paths=return_paths,
+                              data_list_path=args.train_list,
+                              args=args)
 
     world_size = torch.distributed.get_world_size()
     train_sampler = DistributedSampler(train_data) if args.distributed else None
@@ -61,7 +65,6 @@ def get_val_loader(args: argparse.Namespace) -> torch.utils.data.DataLoader:
             transform.Resize(args.image_size),
             transform.ToTensor(),
             transform.Normalize(mean=args.mean, std=args.std)])
-    val_sampler = None
     split_classes = get_split_classes(args)
 
     # ===================== Filter out classes seen during training =====================
@@ -74,13 +77,34 @@ def get_val_loader(args: argparse.Namespace) -> torch.utils.data.DataLoader:
     class_list = filter_classes(args.train_name, args.train_split, test_name, test_split, split_classes)
 
     # ===================== Build loader =====================
-    val_data = EpisodicData(transform=val_transform, class_list=class_list, args=args)
-    val_loader = torch.utils.data.DataLoader(val_data,
-                                             batch_size=1,
-                                             shuffle=False,
-                                             num_workers=args.workers,
-                                             pin_memory=True,
-                                             sampler=val_sampler)
+    if args.episodic_val:
+        val_sampler = None
+        val_data = EpisodicData(transform=val_transform,
+                                class_list=class_list,
+                                data_list_path=args.val_list,
+                                args=args)
+        val_loader = torch.utils.data.DataLoader(val_data,
+                                                 batch_size=1,
+                                                 shuffle=False,
+                                                 num_workers=args.workers,
+                                                 pin_memory=True,
+                                                 sampler=val_sampler)
+    else:
+        class_list = split_classes[args.train_name][args.train_split]['train']
+        val_data = StandardData(args=args,
+                                transform=val_transform,
+                                class_list=class_list,
+                                return_paths=False,
+                                data_list_path=args.val_list)
+        val_sampler = DistributedSampler(val_data) if args.distributed else None
+        world_size = torch.distributed.get_world_size()
+        batch_size = int(args.batch_size_val / world_size) if args.distributed else args.batch_size_val
+        val_loader = torch.utils.data.DataLoader(val_data,
+                                                 batch_size=batch_size,
+                                                 shuffle=False,
+                                                 num_workers=1,
+                                                 pin_memory=True,
+                                                 sampler=val_sampler)
 
     return val_loader, val_transform
 
@@ -88,11 +112,12 @@ def get_val_loader(args: argparse.Namespace) -> torch.utils.data.DataLoader:
 class StandardData(Dataset):
     def __init__(self, args: argparse.Namespace,
                  transform: transform.Compose,
+                 data_list_path: str,
                  class_list: List[int],
                  return_paths: bool):
         self.data_root = args.data_root
         self.class_list = class_list
-        self.data_list, _ = make_dataset(args.data_root, args.train_list, class_list)
+        self.data_list, _ = make_dataset(args.data_root, data_list_path, class_list)
         self.transform = transform
         self.return_paths = return_paths
 
@@ -148,13 +173,14 @@ class EpisodicData(Dataset):
     def __init__(self,
                  transform: transform.Compose,
                  class_list: List[int],
+                 data_list_path: str,
                  args: argparse.Namespace):
 
         self.shot = args.shot
         self.random_shot = args.random_shot
         self.data_root = args.data_root
         self.class_list = class_list
-        self.data_list, self.sub_class_file_list = make_dataset(args.data_root, args.val_list, self.class_list)
+        self.data_list, self.sub_class_file_list = make_dataset(args.data_root, data_list_path, self.class_list)
         self.transform = transform
 
     def __len__(self):

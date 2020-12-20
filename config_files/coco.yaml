@@ -50,11 +50,11 @@ MODEL:
   bottleneck_dim: 512
 
 EVALUATION:
+  episodic_val: True
   shot: 1
   random_shot: False
-  episodic: True
+  batch_size_val: 3
   norm_feat: True
-  batch_size_val: 100
   manual_seed: 2020
   ckpt_used: best
   test_num: 1000
@@ -74,4 +74,4 @@ CLASSIFIER:
   cls_visdom_freq: 5
 
 DISTRIBUTED:
-  gpus: [0]
+  gpus: [0, 1, 2]

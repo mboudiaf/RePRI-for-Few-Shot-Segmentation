@@ -10,4 +10,6 @@ python3 -m src.train --config config_files/${DATA}.yaml \
 					 --opts train_split ${SPLIT} \
 						    layers ${LAYERS} \
 						    gpus ${GPU} \
+						    visdom_port 8098 \
+						    episodic_val False \
 							    | tee ${dirname}/log_${SHOT}.txt

@@ -10,8 +10,8 @@ import torch.utils.data
 from visdom_logger import VisdomLogger
 from collections import defaultdict
 from .dataset.dataset import get_val_loader
-from .util import AverageMeter, batch_intersectionAndUnionGPU, get_model_dir
-from .util import find_free_port, setup, cleanup, to_one_hot
+from .util import AverageMeter, batch_intersectionAndUnionGPU, get_model_dir, main_process
+from .util import find_free_port, setup, cleanup, to_one_hot, intersectionAndUnionGPU
 from .classifier import Classifier
 from .model.pspnet import get_model
 import torch.distributed as dist
@@ -73,11 +73,11 @@ def main_worker(rank: int,
     episodic_val_loader, _ = get_val_loader(args)
 
     # ========== Test  ==========
-    val_Iou, val_loss = validate(args=args,
-                                 val_loader=episodic_val_loader,
-                                 model=model,
-                                 use_callback=(args.visdom_port != -1),
-                                 suffix=f'test')
+    val_Iou, val_loss = episodic_validate(args=args,
+                                          val_loader=episodic_val_loader,
+                                          model=model,
+                                          use_callback=(args.visdom_port != -1),
+                                          suffix=f'test')
     if args.distributed:
         dist.all_reduce(val_Iou), dist.all_reduce(val_loss)
         val_Iou /= world_size
@@ -86,11 +86,11 @@ def main_worker(rank: int,
     cleanup()
 
 
-def validate(args: argparse.Namespace,
-             val_loader: torch.utils.data.DataLoader,
-             model: DDP,
-             use_callback: bool,
-             suffix: str = 'test') -> Tuple[torch.tensor, torch.tensor]:
+def episodic_validate(args: argparse.Namespace,
+                      val_loader: torch.utils.data.DataLoader,
+                      model: DDP,
+                      use_callback: bool,
+                      suffix: str = 'test') -> Tuple[torch.tensor, torch.tensor]:
 
     print('==> Start testing')
 
@@ -231,13 +231,54 @@ def validate(args: argparse.Namespace,
     return val_IoUs.mean(), val_losses.mean()
 
 
+def standard_validate(args: argparse.Namespace,
+                      val_loader: torch.utils.data.DataLoader,
+                      model: DDP,
+                      use_callback: bool,
+                      suffix: str = 'test') -> Tuple[torch.tensor, torch.tensor]:
+
+    print('==> Standard validation')
+    model.eval()
+    loss_fn = torch.nn.CrossEntropyLoss(ignore_index=255)
+    iterable_val_loader = iter(val_loader)
+
+    bar = tqdm(range(len(iterable_val_loader)))
+
+    loss = 0.
+    intersections = torch.zeros(args.num_classes_tr).to(dist.get_rank())
+    unions = torch.zeros(args.num_classes_tr).to(dist.get_rank())
+
+    for i in bar:
+        images, gt = iterable_val_loader.next()
+        images = images.to(dist.get_rank(), non_blocking=True)
+        gt = gt.to(dist.get_rank(), non_blocking=True)
+        logits = model(images).detach()
+        loss += loss_fn(logits, gt)
+        intersection, union, _ = intersectionAndUnionGPU(logits.argmax(1),
+                                                         gt,
+                                                         args.num_classes_tr,
+                                                         255)
+        intersections += intersection
+        unions += union
+    loss /= len(val_loader.dataset)
+
+    if args.distributed:
+        dist.all_reduce(loss)
+        dist.all_reduce(intersections)
+        dist.all_reduce(unions)
+
+    mIoU = (intersections / (unions + 1e-10)).mean()
+    loss /= dist.get_world_size()
+    return mIoU, loss
+
+
 if __name__ == "__main__":
     args = parse_args()
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.gpus)
 
     if args.debug:
-        args.test_num = 250
-        args.n_runs = 1
+        args.test_num = 500
+        args.n_runs = 2
 
     world_size = len(args.gpus)
     distributed = world_size > 1
