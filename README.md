@@ -15,11 +15,10 @@ In this repo, we provide the code for our paper : "Few-Shot Segmentation Without
 + cv2==4.2.0
 + pyyaml==5.3.1
 
-For both training and testing, metrics monitoring is done through **visdom_logger** (https://github.com/luizgh/visdom_logger). To install this package, simply clone the repo and install it with pip:
+For both training and testing, metrics monitoring is done through **visdom_logger** (https://github.com/luizgh/visdom_logger). To install this package with pip, use the following command:
 
  ```
- git clone https://github.com/luizgh/visdom_logger.git
- pip install -e visdom_logger
+pip install git+https://github.com/luizgh/visdom_logger.git
  ```
 
  2. Hardware : A 11 GB+ CUDA-enabled GPU
