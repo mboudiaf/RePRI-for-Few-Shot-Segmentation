@@ -15,8 +15,13 @@ initmodel/
 deploy/
 pickle_files/
 beluga/
-data/*
-!data/*.lineage
+data/pascal/*
+data/coco/*
+
+
+!.gitignore
+#!data/*.lineage
+!data/coco/*.py
 
 
 
