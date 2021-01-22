@@ -21,6 +21,7 @@ import argparse
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
 import time
+from .visu import make_episode_visualization
 from typing import Tuple
 
 
@@ -148,6 +149,7 @@ def episodic_validate(args: argparse.Namespace,
                 s_label = s_label.to(dist.get_rank(), non_blocking=True)
                 qry_img = qry_img.to(dist.get_rank(), non_blocking=True)
 
+
                 f_s = model.module.extract_features(spprt_imgs.squeeze(0))
                 f_q = model.module.extract_features(qry_img)
 
@@ -209,6 +211,20 @@ def episodic_validate(args: argparse.Namespace,
                                                                                  mIoU,
                                                                                  loss_meter=loss_meter,
                                                                                  ))
+
+            # ================== Visualization ==================
+            if args.visu:
+                root = os.path.join('plots', 'episodes')
+                os.makedirs(root, exist_ok=True)
+                save_path = os.path.join(root, f'run_{run}_episode_{e}.pdf')
+                make_episode_visualization(img_s=spprt_imgs[0].cpu().numpy(),
+                                           img_q=qry_img[0].cpu().numpy(),
+                                           gt_s=s_label[0].cpu().numpy(),
+                                           gt_q=q_label[0].cpu().numpy(),
+                                           preds=probas[-1].cpu().numpy(),
+                                           save_path=save_path)
+
+
         runtimes[run] = runtime
         mIoU = np.mean(list(IoU.values()))
         print('mIoU---Val result: mIoU {:.4f}.'.format(mIoU))

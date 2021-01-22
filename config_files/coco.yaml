@@ -63,6 +63,9 @@ EVALUATION:
   n_runs: 1
   save_oracle: False
 
+VISUALIZATION:
+  visu: False
+
 CLASSIFIER:
   distance: cos
   temperature: 20.
