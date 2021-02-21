@@ -328,8 +328,8 @@ class Classifier(object):
         valid_pixels_s = (ds_gt_s != 255).float()  # [n_tasks, shot, h, w]
 
         one_hot_gt_q = to_one_hot(ds_gt_q, self.num_classes)  # [n_tasks, shot, num_classes, h, w]
-        oracle_FB_param = (valid_pixels_q * one_hot_gt_q).sum(dim=(1, 3, 4))
-        oracle_FB_param /= (valid_pixels_q).sum(dim=(1, 3, 4))
+        oracle_FB_param = (valid_pixels_q.unsqueeze(2) * one_hot_gt_q).sum(dim=(1, 3, 4))
+        oracle_FB_param /= (valid_pixels_q.unsqueeze(2)).sum(dim=(1, 3, 4))
 
         one_hot_gt_s = to_one_hot(ds_gt_s, self.num_classes)  # [n_tasks, shot, num_classes, h, w]
         ce_s = self.get_ce(proba_s, valid_pixels_s, one_hot_gt_s)

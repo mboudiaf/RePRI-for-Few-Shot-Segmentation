@@ -60,7 +60,7 @@ EVALUATION:
   test_num: 1000
   FB_param_noise: 0
   smoothing: True
-  n_runs: 1
+  n_runs: 2
   save_oracle: False
 
 VISUALIZATION:
@@ -69,11 +69,11 @@ VISUALIZATION:
 CLASSIFIER:
   distance: cos
   temperature: 20.
-  adapt_iter: 10
+  adapt_iter: 50
   FB_param_type: soft
   weights: [1.0, 'auto', 'auto']
   cls_lr: 0.025
-  FB_param_update: [15]
+  FB_param_update: [10]
   cls_visdom_freq: 5
 
 DISTRIBUTED:

@@ -11,5 +11,4 @@ python3 -m src.train --config config_files/${DATA}.yaml \
 						    layers ${LAYERS} \
 						    gpus ${GPU} \
 						    visdom_port 8098 \
-						    episodic_val False \
-							    | tee ${dirname}/log_${SHOT}.txt
+							 | tee ${dirname}/log_${SHOT}.txt

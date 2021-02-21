@@ -6,6 +6,7 @@ archives/
 *.sublime-workspace
 *.npy
 model_ckpt/
+model_ckpt_rebuttal/
 my_models/
 exp/
 ckpt/

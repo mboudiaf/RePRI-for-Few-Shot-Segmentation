@@ -9,7 +9,7 @@ DATA:
   num_classes_tr: 16  # Counting background for training
   num_classes_val: 5
   use_split_coco: False
-  workers: 2
+  workers: 3
   image_size: 417
   padding_label: 255
   mean: [0.485, 0.456, 0.406]
@@ -23,7 +23,7 @@ DATA:
 TRAIN:
   ckpt_path: checkpoints/
   batch_size: 12
-  epochs: 50
+  epochs: 100
   log_freq : 50
   visdom_port: -1
   debug: False
@@ -54,13 +54,13 @@ EVALUATION:
   shot: 1
   random_shot: False
   norm_feat: True
-  batch_size_val: 2
+  batch_size_val: 200
   manual_seed: 2020
   ckpt_used: best
   test_num: 1000
   FB_param_noise: 0
   smoothing: True
-  n_runs: 1
+  n_runs: 2
   save_oracle: False
 
 VISUALIZATION:
@@ -69,11 +69,11 @@ VISUALIZATION:
 CLASSIFIER:
   distance: cos
   temperature: 20.
-  adapt_iter: 10
+  adapt_iter: 50
   FB_param_type: soft
   weights: [1.0, 'auto', 'auto']  #  [0.5, 1.0, 0.1]
   cls_lr: 0.025
-  FB_param_update: [15]
+  FB_param_update: [10]
   cls_visdom_freq: 5
 
 DISTRIBUTED:

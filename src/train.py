@@ -48,11 +48,11 @@ def main_worker(rank: int,
     if args.manual_seed is not None:
         cudnn.benchmark = False
         cudnn.deterministic = True
-        torch.cuda.manual_seed(args.manual_seed + rank)
-        np.random.seed(args.manual_seed + rank)
-        torch.manual_seed(args.manual_seed + rank)
-        torch.cuda.manual_seed_all(args.manual_seed + rank)
-        random.seed(args.manual_seed + rank)
+        torch.cuda.manual_seed(args.manual_seed)
+        np.random.seed(args.manual_seed)
+        torch.manual_seed(args.manual_seed)
+        torch.cuda.manual_seed_all(args.manual_seed)
+        random.seed(args.manual_seed)
 
     callback = None if args.visdom_port == -1 else VisdomLogger(port=args.visdom_port)
 
