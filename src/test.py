@@ -136,30 +136,30 @@ def episodic_validate(args: argparse.Namespace,
             classes = []  # All classes considered in the tasks
 
             # =========== Generate tasks and extract features for each task ===============
-            for i in range(args.batch_size_val):
-                try:
-                    qry_img, q_label, spprt_imgs, s_label, subcls, _, _ = iter_loader.next()
-                except:
-                    iter_loader = iter(val_loader)
-                    qry_img, q_label, spprt_imgs, s_label, subcls, _, _ = iter_loader.next()
-                iter_num += 1
+            with torch.no_grad():
+                for i in range(args.batch_size_val):
+                    try:
+                        qry_img, q_label, spprt_imgs, s_label, subcls, _, _ = iter_loader.next()
+                    except:
+                        iter_loader = iter(val_loader)
+                        qry_img, q_label, spprt_imgs, s_label, subcls, _, _ = iter_loader.next()
+                    iter_num += 1
 
-                q_label = q_label.to(dist.get_rank(), non_blocking=True)
-                spprt_imgs = spprt_imgs.to(dist.get_rank(), non_blocking=True)
-                s_label = s_label.to(dist.get_rank(), non_blocking=True)
-                qry_img = qry_img.to(dist.get_rank(), non_blocking=True)
+                    q_label = q_label.to(dist.get_rank(), non_blocking=True)
+                    spprt_imgs = spprt_imgs.to(dist.get_rank(), non_blocking=True)
+                    s_label = s_label.to(dist.get_rank(), non_blocking=True)
+                    qry_img = qry_img.to(dist.get_rank(), non_blocking=True)
 
+                    f_s = model.module.extract_features(spprt_imgs.squeeze(0))
+                    f_q = model.module.extract_features(qry_img)
 
-                f_s = model.module.extract_features(spprt_imgs.squeeze(0))
-                f_q = model.module.extract_features(qry_img)
-
-                shot = f_s.size(0)
-                n_shots[i] = shot
-                features_s[i, :shot] = f_s.detach()
-                features_q[i] = f_q.detach()
-                gt_s[i, :shot] = s_label
-                gt_q[i, 0] = q_label
-                classes.append([class_.item() for class_ in subcls])
+                    shot = f_s.size(0)
+                    n_shots[i] = shot
+                    features_s[i, :shot] = f_s.detach()
+                    features_q[i] = f_q.detach()
+                    gt_s[i, :shot] = s_label
+                    gt_q[i, 0] = q_label
+                    classes.append([class_.item() for class_ in subcls])
 
             # =========== Normalize features along channel dimension ===============
             if args.norm_feat:
@@ -264,19 +264,20 @@ def standard_validate(args: argparse.Namespace,
     intersections = torch.zeros(args.num_classes_tr).to(dist.get_rank())
     unions = torch.zeros(args.num_classes_tr).to(dist.get_rank())
 
-    for i in bar:
-        images, gt = iterable_val_loader.next()
-        images = images.to(dist.get_rank(), non_blocking=True)
-        gt = gt.to(dist.get_rank(), non_blocking=True)
-        logits = model(images).detach()
-        loss += loss_fn(logits, gt)
-        intersection, union, _ = intersectionAndUnionGPU(logits.argmax(1),
-                                                         gt,
-                                                         args.num_classes_tr,
-                                                         255)
-        intersections += intersection
-        unions += union
-    loss /= len(val_loader.dataset)
+    with torch.no_grad():
+        for i in bar:
+            images, gt = iterable_val_loader.next()
+            images = images.to(dist.get_rank(), non_blocking=True)
+            gt = gt.to(dist.get_rank(), non_blocking=True)
+            logits = model(images).detach()
+            loss += loss_fn(logits, gt)
+            intersection, union, _ = intersectionAndUnionGPU(logits.argmax(1),
+                                                             gt,
+                                                             args.num_classes_tr,
+                                                             255)
+            intersections += intersection
+            unions += union
+        loss /= len(val_loader.dataset)
 
     if args.distributed:
         dist.all_reduce(loss)

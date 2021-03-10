@@ -10,10 +10,10 @@ then
    bsz_val="200"
 elif [ $SHOT == 5 ]
 then
-   bsz_val="20"
+   bsz_val="100"
 elif [ $SHOT == 10 ]
 then
-   bsz_val="5"
+   bsz_val="50"
 fi
 
 for SPLIT in $SPLITS
