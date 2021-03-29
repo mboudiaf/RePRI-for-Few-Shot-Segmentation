@@ -52,6 +52,7 @@ MODEL:
   bottleneck_dim: 512
 
 EVALUATION:
+  episodic_val: True
   shot: 1
   random_shot: False
   episodic: True
