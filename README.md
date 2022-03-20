@@ -23,7 +23,7 @@ For both training and testing, metrics monitoring is done through **visdom_logge
 pip install git+https://github.com/luizgh/visdom_logger.git
  ```
 
- 2. Hardware : A 11 GB+ CUDA-enabled GPU
+ 2. Hardware : If you plan to train, 24GB memory (can be split across GPUS). For testing only, a single 12 GB GPU is enough.
 
 ### Download data
 
